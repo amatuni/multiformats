@@ -10,7 +10,7 @@ cc_library(
     copts = COPTS,
     visibility = ["//visibility:public"],
     deps = [
-        "//multiformats/varint",
+        "//multiformats/util",
         "//third_party:crypto",
         "//third_party:strutils",
     ],

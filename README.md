@@ -18,6 +18,7 @@ int main() {
     auto data = "this is some data to hash"s;
 
     h.sum(data);
+
     cout << h.hex_string() << endl;
 
 }
@@ -42,7 +43,7 @@ output:
 - [ ] multistream
 
 
-### adding this library to your bazel build as a dependency:
+### including in your bazel build as a dependency:
 
 just add this to your ```WORKSPACE``` file:
 

@@ -11,5 +11,8 @@ std::vector<uint8_t> encode(uint64_t in) {
   return out;
 }
 
-uint64_t decode(std::vector<uint8_t> in) {}
+std::vector<uint64_t> decode(std::vector<uint8_t>& in) {
+  uint64_t x = 0;
+  uint8_t  s = 0;
+}
 }  // namespace multi::varint

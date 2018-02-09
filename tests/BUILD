@@ -6,7 +6,7 @@ cc_binary(
     copts = COPTS,
     deps = [
         "//multiformats/multihash",
-        "//multiformats/varint",
+        "//multiformats/util",
     ],
 )
 

@@ -10,7 +10,8 @@
 #include <string>
 #include <vector>
 
-#include "multiformats/varint/varint.h"
+#include "multiformats/util/common.h"
+#include "multiformats/util/varint.h"
 
 #include "third_party/crypto/blake2.h"
 #include "third_party/crypto/sha1.h"
@@ -19,19 +20,6 @@
 
 #include "third_party/strutils/tinyformat.h"
 #include "third_party/strutils/utilstrencodings.h"
-
-#ifdef __has_include
-#if __has_include(<optional>)
-#include <optional>
-#define STD_OPTIONAL
-#elif __has_include(<experimental/optional>)
-#include <experimental/optional>
-using std::experimental::optional;
-#define EXP_OPTIONAL
-#else
-#error "Missing <optional>"
-#endif
-#endif
 
 namespace multi::hash {
 
@@ -72,8 +60,8 @@ class Hash {
   static Hash New(const string& hfunc);
   static Hash New(const string& data, const string& hfunc);
 
-  static Hash Decode(const vector<uint8_t> raw_sum);
-  static Hash Decode(const string& hex_digest);
+  static optional<Hash> Decode(const vector<uint8_t> raw_sum);
+  static optional<Hash> Decode(const string& hex_digest);
 
   void                  sum(const string& data);
   string                hex_string() const;
@@ -101,13 +89,32 @@ class Hash {
 
 bool operator==(const Hash& lhs, const Hash& rhs);
 
-Hash New();                     // default to sha256
-Hash New(const string& hfunc);  // construct new hasher given a hashing function
-Hash New(const string& data,
-         const string& hfunc);  // given data and hashing function
+/*
+Return a new Hash object. If not provided any arguments,
+it will default to using SHA-256 as its hashing function.
+*/
+Hash New();
+/*
+Return a new Hash object, initialized with a hashing function
+passed as argument.
+*/
+Hash New(const string& hfunc);
+/*
+Return a new Hash object, given initial data to compute the sum
+for, and a specified hash function.
+*/
+Hash New(const string& data, const string& hfunc);
 
-Hash Decode(const vector<uint8_t>& raw_sum);  // parse multihash from sum
-Hash Decode(const string& hex_digest);        // parse multihash from hex
+/*
+Parse a Hash object given a raw digest. This can fail if given
+malformed input, returning an empty optional<>
+*/
+optional<Hash> Decode(const vector<uint8_t>& raw_sum);
+/*
+Parse a Hash object given a hexadecimal string. This can fail
+if given malformed input, returning an empty optional<>
+*/
+optional<Hash> Decode(const string& hex_digest);
 
 optional<HFuncCode> check_and_init(const string& hfunc);
 
