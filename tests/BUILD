@@ -7,6 +7,7 @@ cc_binary(
     deps = [
         "//multiformats/multihash",
         "//multiformats/util",
+        "//third_party:crypto",
     ],
 )
 

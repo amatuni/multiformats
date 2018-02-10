@@ -40,6 +40,10 @@
         "chrono": "cpp",
         "limits": "cpp",
         "ratio": "cpp",
-        "tuple": "cpp"
+        "tuple": "cpp",
+        "__split_buffer": "cpp",
+        "set": "cpp",
+        "unordered_map": "cpp",
+        "__bit_reference": "cpp"
     }
 }

@@ -14,6 +14,8 @@
 #include "multiformats/util/varint.h"
 
 #include "third_party/crypto/blake2.h"
+// #include "third_party/crypto/keccak-tiny.h"
+#include "third_party/crypto/keccak.h"
 #include "third_party/crypto/sha1.h"
 #include "third_party/crypto/sha256.h"
 #include "third_party/crypto/sha512.h"
@@ -24,6 +26,7 @@
 namespace multi::hash {
 
 using namespace std;
+using namespace multi;
 
 enum class HFuncCode : uint64_t {
   ID         = 0x00,
@@ -56,18 +59,61 @@ enum class HFuncCode : uint64_t {
 
 class Hash {
  public:
+  /*
+  Construct a new Hash object using SHA256 function.
+  */
   static Hash New();
-  static Hash New(const string& hfunc);
-  static Hash New(const string& data, const string& hfunc);
+  /*
+  Construct a new Hash object using the hash function specified
+  as argument. If New() doesn't recognize the hashing function
+  you pass in, it will return an empty std::optional.
+  */
+  static optional<Hash> New(const string& hfunc);
+  /*
+  Construct a new Hash object, with initial data that needs to
+  be digested and a hash function specified as argument. If New()
+  doesn't recognize the hashing function you pass in, it will
+  return an empty std::optional.
+  */
+  static optional<Hash> New(const string& data, const string& hfunc);
+  /*
+  Decode a raw sum into a Hash object. This may fail, returning
+  an empty std::optional.
+  */
+  static optional<Hash> Decode(const vector<uint8_t>& raw_sum);
+  /*
+  Decode a hex encoded string into a Hash object. This may fail,
+  returning an empty std::optional.
+  */
+  static optional<Hash> DecodeHex(const string& hex_digest);
 
-  static optional<Hash> Decode(const vector<uint8_t> raw_sum);
-  static optional<Hash> Decode(const string& hex_digest);
-
-  void                  sum(const string& data);
-  string                hex_string() const;
-  string                b58_string() const;
-  vector<unsigned char> raw_sum() const;
-  string                hash_func_name() const;
+  /*
+  Compute the multihash sum for the data passed as input.
+  */
+  void sum(const string& data);
+  /*
+  Return a string with the hex encoded value of the multihash.
+  This requires a previous call to sum() or that the object was
+  constructed with initial data passed as input.
+  */
+  string hex_string() const;
+  /*
+  Return a string with the base 58 encoded value of the multihash.
+  This requires a previous call to sum() or that the object was
+  constructed with initial data passed as input.
+  */
+  string b58_string() const;
+  /*
+  Return a vector of bytes containing the raw value of the multihash.
+  This requires a previous call to sum() or that the object was
+  constructed with initial data passed as input.
+  */
+  vector<uint8_t> raw_sum() const;
+  /*
+  Return the name of the hash function being used for this
+  Hash object
+  */
+  string hash_func_name() const;
 
   friend bool operator==(const Hash& lhs, const Hash& rhs);
 
@@ -76,11 +122,12 @@ class Hash {
   Hash(string hfunc);
   Hash(HFuncCode code);
   Hash(const string& data, HFuncCode code);
+  Hash(uint64_t code, size_t code_len, uint64_t len, size_t len_len,
+       const vector<uint8_t>& raw_sum);
 
   void _prep_sum_buffer(HFuncCode func);
 
   HFuncCode       _hfunc;
-  string          _hfunc_name;
   vector<uint8_t> _sum;
   vector<uint8_t> _code_prefix;
   vector<uint8_t> _size_prefix;
@@ -98,13 +145,12 @@ Hash New();
 Return a new Hash object, initialized with a hashing function
 passed as argument.
 */
-Hash New(const string& hfunc);
+optional<Hash> New(const string& hfunc);
 /*
 Return a new Hash object, given initial data to compute the sum
 for, and a specified hash function.
 */
-Hash New(const string& data, const string& hfunc);
-
+optional<Hash> New(const string& data, const string& hfunc);
 /*
 Parse a Hash object given a raw digest. This can fail if given
 malformed input, returning an empty optional<>
@@ -114,7 +160,7 @@ optional<Hash> Decode(const vector<uint8_t>& raw_sum);
 Parse a Hash object given a hexadecimal string. This can fail
 if given malformed input, returning an empty optional<>
 */
-optional<Hash> Decode(const string& hex_digest);
+optional<Hash> DecodeHex(const string& hex_digest);
 
 optional<HFuncCode> check_and_init(const string& hfunc);
 
@@ -124,6 +170,8 @@ void _init();
 void sum_sha1(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
 void sum_sha256(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
 void sum_sha512(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
+void sum_keccak256(const string& data, vector<uint8_t>& out,
+                   uint16_t _prefix_len);
 void sum_blake2b(const string& data, vector<uint8_t>& out,
                  uint16_t _prefix_len);
 void sum_murmur3_32(const string& data, vector<uint8_t>& out,

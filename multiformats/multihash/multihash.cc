@@ -6,18 +6,18 @@ Hash Hash::New() {
   return Hash(HFuncCode::SHA2_256);
 }
 
-Hash Hash::New(const string& hfunc) {
+optional<Hash> Hash::New(const string& hfunc) {
   if (auto x = check_and_init(hfunc); x) {
     return Hash(*x);
   }
-  return Hash(HFuncCode::SHA2_256);
+  return {};
 }
 
-Hash Hash::New(const string& data, const string& hfunc) {
+optional<Hash> Hash::New(const string& data, const string& hfunc) {
   if (auto x = check_and_init(hfunc); x) {
     return Hash(data, *x);
   }
-  return Hash(HFuncCode::SHA2_256);
+  return {};
 }
 
 Hash::Hash(const string& data, HFuncCode func) : _hfunc(func) {
@@ -28,6 +28,10 @@ Hash::Hash(const string& data, HFuncCode func) : _hfunc(func) {
 Hash::Hash(HFuncCode func) : _hfunc(func) {
   _prep_sum_buffer(func);
 }
+
+Hash::Hash(uint64_t code, size_t code_len, uint64_t len, size_t len_len,
+           const vector<uint8_t>& raw_sum)
+    : _sum(raw_sum), _hfunc(HFuncCode{code}), _prefix_len(code_len + len_len) {}
 
 void Hash::_prep_sum_buffer(HFuncCode func) {
   auto hfc     = static_cast<underlying_type_t<HFuncCode>>(func);
@@ -42,6 +46,29 @@ void Hash::_prep_sum_buffer(HFuncCode func) {
        _sum.begin() + _code_prefix.size());
 }
 
+optional<Hash> Hash::Decode(const vector<uint8_t>& raw_sum) {
+  if (raw_sum.size() < 3) return {};
+  auto [code, code_len] = varint::decode(raw_sum.cbegin(), raw_sum.cend());
+  // check if that code is legit
+  if (auto it = code_names.find(HFuncCode{code}); it == code_names.end()) {
+    return {};
+  }
+
+  auto [len, len_len] =
+      varint::decode((raw_sum.cbegin() + code_len), raw_sum.cend());
+  // check if the length is correct with default_lengths lookup
+  if (auto def_len = default_lengths.find(HFuncCode{code});
+      def_len->second != len) {
+    return {};
+  }
+  return Hash::Hash(code, code_len, len, len_len, raw_sum);
+}
+
+optional<Hash> Hash::DecodeHex(const string& hex_digest) {
+  vector<uint8_t> raw_sum = ParseHex(hex_digest);
+  return Decode(raw_sum);
+}
+
 void Hash::sum(const string& data) {
   // compute hash digest
   switch (_hfunc) {
@@ -53,6 +80,9 @@ void Hash::sum(const string& data) {
       break;
     case HFuncCode::SHA2_512:
       sum_sha512(data, _sum, _prefix_len);
+      break;
+    case HFuncCode::KECCAK_256:
+      sum_keccak256(data, _sum, _prefix_len);
       break;
     case HFuncCode::BLAKE2B_MIN:
       sum_blake2b(data, _sum, _prefix_len);
@@ -67,7 +97,7 @@ string Hash::hex_string() const {
   return HexStr(_sum);
 }
 
-vector<unsigned char> Hash::raw_sum() const {
+vector<uint8_t> Hash::raw_sum() const {
   return _sum;
 }
 
@@ -83,20 +113,26 @@ optional<HFuncCode> check_and_init(const string& hfunc) {
   return {};
 }
 
-Hash New(const string& hfunc) {
+optional<Hash> New(const string& hfunc) {
   if (auto x = check_and_init(hfunc); x) {
     return Hash::New(hfunc);
   }
-  return Hash::New("sha256");
+  return {};
 }
 
-Hash Decode(const string& hex_digest) {}
+optional<Hash> DecodeHex(const string& hex_digest) {
+  return Hash::DecodeHex(hex_digest);
+}
 
-Hash New(const string& data, const string& hfunc) {
+optional<Hash> Decode(const vector<uint8_t>& raw_sum) {
+  return Hash::Decode(raw_sum);
+}
+
+optional<Hash> New(const string& data, const string& hfunc) {
   if (auto x = check_and_init(hfunc); x) {
     return Hash::New(data, hfunc);
   }
-  return Hash::New("sha256");
+  return {};
 }
 
 bool operator==(const Hash& lhs, const Hash& rhs) {
@@ -148,6 +184,11 @@ void sum_sha512(const string& data, vector<unsigned char>& out,
   sha512.Write((unsigned char*)&data[0], data.size())
       .Finalize(&out[_prefix_len]);
 }
+
+// void sum_keccak256(const string& data, vector<unsigned char>& out,
+//                    uint16_t _prefix_len) {
+//   sha3_256(&out[_prefix_len], 256, (const uint8_t*)data.data(), data.size());
+// }
 
 void sum_blake2b(const string& data, vector<unsigned char>& out,
                  uint16_t _prefix_len) {

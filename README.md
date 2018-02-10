@@ -14,13 +14,26 @@ using namespace std;
 using namespace mh = multi::hash;
 
 int main() {
-    auto    h = mh::New("sha256"); 
     auto data = "this is some data to hash"s;
+    auto    h = mh::New(); 
+    /*
+    if you call mh::New() with no arguments it defaults 
+    to using SHA256.
+    */
 
     h.sum(data);
-
     cout << h.hex_string() << endl;
 
+    /*
+    If you call mh::New() with a hash function argument, 
+    it'll return an std::optional<Hash>, since constructor 
+    might fail (i.e. you pass in an argument it doesn't 
+    understand). 
+    */
+    if (auto h2 = mh::New("sha3-384"); h) {
+        h2.sum(data);
+        cout << h2->hex_string() << endl;
+    }
 }
 ```
 output:

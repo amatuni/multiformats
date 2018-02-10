@@ -1,9 +1,9 @@
 cc_library(
     name = "crypto",
     srcs = glob([
+        "crypto/*.c",
         "crypto/*.cpp",
         "crypto/*.h",
-        "crypto/*.c",
     ]),
     hdrs = glob(["crypto/*.h"]),
     includes = ["."],
