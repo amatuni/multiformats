@@ -68,3 +68,21 @@ http_archive(
      strip_prefix = "multiformats-master",
 )
 ```
+
+then add as dependency to your target:
+
+```
+cc_binary(
+    name = "my_binary",
+    srcs = ["main.cc"],
+    copts = [
+        "-std=c++1z",
+        "-stdlib=libc++",
+        "-Wall",
+        "-Wextra",
+    ],
+    deps = [
+        "@multiformats//multiformats/multihash",
+    ],
+)
+```

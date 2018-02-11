@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <iostream>
 #include <map>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -14,7 +13,6 @@
 
 #include "third_party/crypto/blake2.h"
 #include "third_party/crypto/keccak-tiny.h"
-// #include "third_party/crypto/keccak.h"
 #include "third_party/crypto/sha1.h"
 #include "third_party/crypto/sha256.h"
 #include "third_party/crypto/sha512.h"
