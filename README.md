@@ -77,7 +77,6 @@ cc_binary(
     srcs = ["main.cc"],
     copts = [
         "-std=c++1z",
-        "-stdlib=libc++",
         "-Wall",
         "-Wextra",
     ],
