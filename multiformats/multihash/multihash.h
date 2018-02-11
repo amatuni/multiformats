@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <experimental/optional>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -14,8 +13,8 @@
 #include "multiformats/util/varint.h"
 
 #include "third_party/crypto/blake2.h"
-// #include "third_party/crypto/keccak-tiny.h"
-#include "third_party/crypto/keccak.h"
+#include "third_party/crypto/keccak-tiny.h"
+// #include "third_party/crypto/keccak.h"
 #include "third_party/crypto/sha1.h"
 #include "third_party/crypto/sha256.h"
 #include "third_party/crypto/sha512.h"
@@ -115,6 +114,8 @@ class Hash {
   */
   string hash_func_name() const;
 
+  inline static bool initialized = false;
+
   friend bool operator==(const Hash& lhs, const Hash& rhs);
 
  private:
@@ -131,7 +132,7 @@ class Hash {
   vector<uint8_t> _sum;
   vector<uint8_t> _code_prefix;
   vector<uint8_t> _size_prefix;
-  uint16_t        _prefix_len;
+  uint8_t         _prefix_len;
 };
 
 bool operator==(const Hash& lhs, const Hash& rhs);
@@ -167,9 +168,18 @@ optional<HFuncCode> check_and_init(const string& hfunc);
 namespace {
 
 void _init();
+
 void sum_sha1(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
 void sum_sha256(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
 void sum_sha512(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
+void sum_sha3_224(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len);
+void sum_sha3_256(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len);
+void sum_sha3_384(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len);
+void sum_sha3_512(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len);
 void sum_keccak256(const string& data, vector<uint8_t>& out,
                    uint16_t _prefix_len);
 void sum_blake2b(const string& data, vector<uint8_t>& out,

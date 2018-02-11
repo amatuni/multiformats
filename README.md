@@ -30,8 +30,8 @@ int main() {
     might fail (i.e. you pass in an argument it doesn't 
     understand). 
     */
-    if (auto h2 = mh::New("sha3-384"); h) {
-        h2.sum(data);
+    if (auto h2 = mh::New("sha3-224")) {
+        h2->sum(data);
         cout << h2->hex_string() << endl;
     }
 }
@@ -39,6 +39,7 @@ int main() {
 output:
 ```
 1220cc98718f1394ba1071417e108bfb27a81c6fa7ff332ef4e1db37e5df2a9d18f0
+171c60370c984ca8fd5fd39842f70acf3605d2c6443bb1cf38a2fc8fd565
 ```
 
 ### requirements

@@ -1,7 +1,7 @@
 cc_library(
     name = "crypto",
     srcs = glob([
-        "crypto/*.c",
+        "crypto/*.cc",
         "crypto/*.cpp",
         "crypto/*.h",
     ]),

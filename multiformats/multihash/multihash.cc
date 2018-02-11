@@ -47,21 +47,23 @@ void Hash::_prep_sum_buffer(HFuncCode func) {
 }
 
 optional<Hash> Hash::Decode(const vector<uint8_t>& raw_sum) {
+  // need at least 3 bytes
   if (raw_sum.size() < 3) return {};
-  auto [code, code_len] = varint::decode(raw_sum.cbegin(), raw_sum.cend());
-  // check if that code is legit
+  // decode the hash function prefix
+  auto [code, c_len] = varint::decode(raw_sum.cbegin(), raw_sum.cend());
+  // check if that code is legit, if not return empty optional
   if (auto it = code_names.find(HFuncCode{code}); it == code_names.end()) {
     return {};
   }
-
-  auto [len, len_len] =
-      varint::decode((raw_sum.cbegin() + code_len), raw_sum.cend());
+  // decode the digest length prefix
+  auto [len, l_len] =
+      varint::decode((raw_sum.cbegin() + c_len), raw_sum.cend());
   // check if the length is correct with default_lengths lookup
   if (auto def_len = default_lengths.find(HFuncCode{code});
       def_len->second != len) {
     return {};
   }
-  return Hash::Hash(code, code_len, len, len_len, raw_sum);
+  return Hash::Hash(code, c_len, len, l_len, raw_sum);
 }
 
 optional<Hash> Hash::DecodeHex(const string& hex_digest) {
@@ -81,8 +83,17 @@ void Hash::sum(const string& data) {
     case HFuncCode::SHA2_512:
       sum_sha512(data, _sum, _prefix_len);
       break;
-    case HFuncCode::KECCAK_256:
-      sum_keccak256(data, _sum, _prefix_len);
+    case HFuncCode::SHA3_224:
+      sum_sha3_224(data, _sum, _prefix_len);
+      break;
+    case HFuncCode::SHA3_256:
+      sum_sha3_256(data, _sum, _prefix_len);
+      break;
+    case HFuncCode::SHA3_384:
+      sum_sha3_384(data, _sum, _prefix_len);
+      break;
+    case HFuncCode::SHA3_512:
+      sum_sha3_512(data, _sum, _prefix_len);
       break;
     case HFuncCode::BLAKE2B_MIN:
       sum_blake2b(data, _sum, _prefix_len);
@@ -107,7 +118,7 @@ string Hash::hash_func_name() const {
 
 optional<HFuncCode> check_and_init(const string& hfunc) {
   if (auto it = code_map.find(hfunc); it != code_map.end()) {
-    _init();
+    if (!Hash::initialized) _init();
     return it->second;
   }
   return {};
@@ -145,7 +156,7 @@ void _init() {
   auto min = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2B_MIN);
   auto max = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2B_MAX);
   for (auto c = min; c <= max; c++) {
-    auto hfunc_code             = static_cast<HFuncCode>(c);
+    auto hfunc_code             = HFuncCode{c};
     auto n                      = c - min + 1;
     auto name                   = tfm::format("blake2b-%d", n * 8);
     default_lengths[hfunc_code] = n;
@@ -156,39 +167,58 @@ void _init() {
   min = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2S_MIN);
   max = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2S_MAX);
   for (auto c = min; c <= max; c++) {
-    auto hfunc_code             = static_cast<HFuncCode>(c);
+    auto hfunc_code             = HFuncCode{c};
     auto n                      = c - min + 1;
     auto name                   = tfm::format("blake2s-%d", n * 8);
     default_lengths[hfunc_code] = n;
     code_map[name]              = hfunc_code;
     code_names[hfunc_code]      = name;
   }
+  Hash::initialized = true;
 }
 
-void sum_sha1(const string& data, vector<unsigned char>& out,
-              uint16_t _prefix_len) {
+void sum_sha1(const string& data, vector<uint8_t>& out, uint16_t _prefix_len) {
   CSHA1 sha1;
   sha1.Write((unsigned char*)&data[0], data.size()).Finalize(&out[_prefix_len]);
 }
 
-void sum_sha256(const string& data, vector<unsigned char>& out,
+void sum_sha256(const string& data, vector<uint8_t>& out,
                 uint16_t _prefix_len) {
   CSHA256 sha256;
   sha256.Write((unsigned char*)&data[0], data.size())
       .Finalize(&out[_prefix_len]);
 }
 
-void sum_sha512(const string& data, vector<unsigned char>& out,
+void sum_sha512(const string& data, vector<uint8_t>& out,
                 uint16_t _prefix_len) {
   CSHA512 sha512;
   sha512.Write((unsigned char*)&data[0], data.size())
       .Finalize(&out[_prefix_len]);
 }
 
-// void sum_keccak256(const string& data, vector<unsigned char>& out,
-//                    uint16_t _prefix_len) {
-//   sha3_256(&out[_prefix_len], 256, (const uint8_t*)data.data(), data.size());
-// }
+void sum_sha3_224(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len) {
+  sha3_224(&out[_prefix_len], out.size() - _prefix_len,
+           (const uint8_t*)data.data(), data.size());
+}
+
+void sum_sha3_256(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len) {
+  sha3_256(&out[_prefix_len], out.size() - _prefix_len,
+           (const uint8_t*)data.data(), data.size());
+}
+
+void sum_sha3_384(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len) {
+  sha3_384(&out[_prefix_len], out.size() - _prefix_len,
+           (const uint8_t*)data.data(), data.size());
+}
+
+void sum_sha3_512(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len) {
+  sha3_512(&out[_prefix_len], out.size() - _prefix_len,
+           (const uint8_t*)data.data(), data.size());
+}
 
 void sum_blake2b(const string& data, vector<unsigned char>& out,
                  uint16_t _prefix_len) {
