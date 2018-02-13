@@ -35,7 +35,7 @@ Hash::Hash(uint64_t code, size_t code_len, uint64_t len, size_t len_len,
 
 void Hash::_prep_sum_buffer(HFuncCode func) {
   auto hfc     = static_cast<underlying_type_t<HFuncCode>>(func);
-  auto hfl     = default_lengths[func];
+  auto hfl     = internal::default_lengths[func];
   _code_prefix = multi::varint::encode(hfc);
   _size_prefix = multi::varint::encode(hfl);
   _prefix_len  = _code_prefix.size() + _size_prefix.size();
@@ -52,14 +52,15 @@ optional<Hash> Hash::Decode(const vector<uint8_t>& raw_sum) {
   // decode the hash function prefix
   auto [code, c_len] = varint::decode(raw_sum.cbegin(), raw_sum.cend());
   // check if that code is legit, if not return empty optional
-  if (auto it = code_names.find(HFuncCode{code}); it == code_names.end()) {
+  if (auto it = internal::code_names.find(HFuncCode{code});
+      it == internal::code_names.end()) {
     return {};
   }
   // decode the digest length prefix
   auto [len, l_len] =
       varint::decode((raw_sum.cbegin() + c_len), raw_sum.cend());
   // check if the length is correct with default_lengths lookup
-  if (auto def_len = default_lengths.find(HFuncCode{code});
+  if (auto def_len = internal::default_lengths.find(HFuncCode{code});
       def_len->second != len) {
     return {};
   }
@@ -72,40 +73,56 @@ optional<Hash> Hash::DecodeHex(const string& hex_digest) {
 }
 
 void Hash::sum(const string& data) {
-  // compute hash digest
+  /*
+  the blake functions are self-handling by
+  virtue of their length
+  */
+  if (is_blake2b(_hfunc)) {
+    internal::sum_blake2b(data, _sum, _prefix_len);
+    return;
+  } else if (is_blake2s(_hfunc)) {
+    internal::sum_blake2s(data, _sum, _prefix_len);
+    return;
+  }
+  // handle the rest of them
   switch (_hfunc) {
     case HFuncCode::SHA1:
-      sum_sha1(data, _sum, _prefix_len);
+      internal::sum_sha1(data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA2_256:
-      sum_sha256(data, _sum, _prefix_len);
+      internal::sum_sha256(data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA2_512:
-      sum_sha512(data, _sum, _prefix_len);
+      internal::sum_sha512(data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA3_224:
-      sum_sha3_224(data, _sum, _prefix_len);
+      internal::sum_sha3_224(data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA3_256:
-      sum_sha3_256(data, _sum, _prefix_len);
+      internal::sum_sha3_256(data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA3_384:
-      sum_sha3_384(data, _sum, _prefix_len);
+      internal::sum_sha3_384(data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA3_512:
-      sum_sha3_512(data, _sum, _prefix_len);
-      break;
-    case HFuncCode::BLAKE2B_MIN:
-      sum_blake2b(data, _sum, _prefix_len);
+      internal::sum_sha3_512(data, _sum, _prefix_len);
       break;
     case HFuncCode::MURMUR3_32:
-      sum_murmur3_32(data, _sum, _prefix_len);
+      internal::sum_murmur3_32(data, _sum, _prefix_len);
       break;
   }
 }
 
-string Hash::hex_string() const {
+string Hash::hex() const {
   return HexStr(_sum);
+}
+
+string Hash::prefix_hex() const {
+  return HexStr(_sum.begin(), _sum.begin() + _prefix_len);
+}
+
+string Hash::digest_hex() const {
+  return HexStr(_sum.cbegin() + _prefix_len, _sum.cend());
 }
 
 vector<uint8_t> Hash::raw_sum() const {
@@ -113,12 +130,13 @@ vector<uint8_t> Hash::raw_sum() const {
 }
 
 string Hash::hash_func_name() const {
-  return code_names[_hfunc];
+  return internal::code_names[_hfunc];
 }
 
 optional<HFuncCode> check_and_init(const string& hfunc) {
-  if (auto it = code_map.find(hfunc); it != code_map.end()) {
-    if (!Hash::initialized) _init();
+  if (!Hash::initialized) internal::_init();
+  if (auto it = internal::code_map.find(hfunc);
+      it != internal::code_map.end()) {
     return it->second;
   }
   return {};
@@ -150,7 +168,8 @@ bool operator==(const Hash& lhs, const Hash& rhs) {
   return lhs._sum == rhs._sum;
 }
 
-namespace {
+namespace internal {
+
 void _init() {
   // generate all the blake2b names
   auto min = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2B_MIN);
@@ -220,11 +239,16 @@ void sum_sha3_512(const string& data, vector<uint8_t>& out,
            (const uint8_t*)data.data(), data.size());
 }
 
-void sum_blake2b(const string& data, vector<unsigned char>& out,
+void sum_blake2b(const string& data, vector<uint8_t>& out,
                  uint16_t _prefix_len) {
-  CSHA512 sha512;
-  sha512.Write((unsigned char*)&data[0], data.size())
-      .Finalize(&out[_prefix_len]);
+  blake2b(&out[_prefix_len], out.size() - _prefix_len, data.data(), data.size(),
+          (void*)0, 0);
+}
+
+void sum_blake2s(const string& data, vector<uint8_t>& out,
+                 uint16_t _prefix_len) {
+  blake2s(&out[_prefix_len], out.size() - _prefix_len, data.data(), data.size(),
+          (void*)0, 0);
 }
 
 void sum_murmur3_32(const string& data, vector<unsigned char>& out,
@@ -234,5 +258,5 @@ void sum_murmur3_32(const string& data, vector<unsigned char>& out,
       .Finalize(&out[_prefix_len]);
 }
 
-}  // namespace
+}  // namespace internal
 }  // namespace multi::hash

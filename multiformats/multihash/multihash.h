@@ -93,19 +93,22 @@ class Hash {
   This requires a previous call to sum() or that the object was
   constructed with initial data passed as input.
   */
-  string hex_string() const;
+  string hex() const;
   /*
   Return a string with the base 58 encoded value of the multihash.
   This requires a previous call to sum() or that the object was
   constructed with initial data passed as input.
   */
-  string b58_string() const;
+  string b58() const;
   /*
   Return a vector of bytes containing the raw value of the multihash.
   This requires a previous call to sum() or that the object was
   constructed with initial data passed as input.
   */
   vector<uint8_t> raw_sum() const;
+
+  string prefix_hex() const;
+  string digest_hex() const;
   /*
   Return the name of the hash function being used for this
   Hash object
@@ -133,6 +136,7 @@ class Hash {
   uint8_t         _prefix_len;
 };
 
+// compare if two Hash objects have equal raw sums
 bool operator==(const Hash& lhs, const Hash& rhs);
 
 /*
@@ -163,7 +167,21 @@ optional<Hash> DecodeHex(const string& hex_digest);
 
 optional<HFuncCode> check_and_init(const string& hfunc);
 
-namespace {
+constexpr bool is_blake2b(HFuncCode c) {
+  auto val = static_cast<underlying_type_t<HFuncCode>>(c);
+  auto min = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2B_MIN);
+  auto max = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2B_MAX);
+  return (val >= min && val <= max);
+}
+
+constexpr bool is_blake2s(HFuncCode c) {
+  auto val = static_cast<underlying_type_t<HFuncCode>>(c);
+  auto min = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2S_MIN);
+  auto max = static_cast<underlying_type_t<HFuncCode>>(HFuncCode::BLAKE2S_MAX);
+  return (val >= min && val <= max);
+}
+
+namespace internal {
 
 void _init();
 
@@ -178,66 +196,70 @@ void sum_sha3_384(const string& data, vector<uint8_t>& out,
                   uint16_t _prefix_len);
 void sum_sha3_512(const string& data, vector<uint8_t>& out,
                   uint16_t _prefix_len);
-void sum_keccak256(const string& data, vector<uint8_t>& out,
-                   uint16_t _prefix_len);
+void sum_sha3_512(const string& data, vector<uint8_t>& out,
+                  uint16_t _prefix_len);
 void sum_blake2b(const string& data, vector<uint8_t>& out,
+                 uint16_t _prefix_len);
+void sum_blake2s(const string& data, vector<uint8_t>& out,
                  uint16_t _prefix_len);
 void sum_murmur3_32(const string& data, vector<uint8_t>& out,
                     uint16_t _prefix_len);
 
-map<HFuncCode, int> default_lengths = {{HFuncCode::ID, -1},
-                                       {HFuncCode::SHA1, 20},
-                                       {HFuncCode::SHA2_256, 32},
-                                       {HFuncCode::SHA2_512, 64},
-                                       {HFuncCode::SHA3_224, 28},
-                                       {HFuncCode::SHA3_256, 32},
-                                       {HFuncCode::SHA3_384, 48},
-                                       {HFuncCode::SHA3_512, 64},
-                                       {HFuncCode::DBL_SHA2_256, 32},
-                                       {HFuncCode::KECCAK_224, 28},
-                                       {HFuncCode::KECCAK_256, 32},
-                                       {HFuncCode::MURMUR3_32, 4},
-                                       {HFuncCode::KECCAK_384, 48},
-                                       {HFuncCode::KECCAK_512, 64},
-                                       {HFuncCode::SHAKE_128, 32},
-                                       {HFuncCode::SHAKE_256, 64}
+static map<HFuncCode, int> default_lengths = {{HFuncCode::ID, -1},
+                                              {HFuncCode::SHA1, 20},
+                                              {HFuncCode::SHA2_256, 32},
+                                              {HFuncCode::SHA2_512, 64},
+                                              {HFuncCode::SHA3_224, 28},
+                                              {HFuncCode::SHA3_256, 32},
+                                              {HFuncCode::SHA3_384, 48},
+                                              {HFuncCode::SHA3_512, 64},
+                                              {HFuncCode::DBL_SHA2_256, 32},
+                                              {HFuncCode::KECCAK_224, 28},
+                                              {HFuncCode::KECCAK_256, 32},
+                                              {HFuncCode::MURMUR3_32, 4},
+                                              {HFuncCode::KECCAK_384, 48},
+                                              {HFuncCode::KECCAK_512, 64},
+                                              {HFuncCode::SHAKE_128, 32},
+                                              {HFuncCode::SHAKE_256, 64}
 
 };
 
-map<string, HFuncCode> code_map = {{"sha1", HFuncCode::SHA1},
-                                   {"sha256", HFuncCode::SHA2_256},
-                                   {"sha2-256", HFuncCode::SHA2_256},
-                                   {"sha2-512", HFuncCode::SHA2_512},
-                                   {"sha3", HFuncCode::SHA3_512},
-                                   {"sha3-224", HFuncCode::SHA3_224},
-                                   {"sha3-256", HFuncCode::SHA3_256},
-                                   {"sha3-384", HFuncCode::SHA3_384},
-                                   {"sha3-512", HFuncCode::SHA3_512},
-                                   {"dbl-sha2-256", HFuncCode::DBL_SHA2_256},
-                                   {"murmur3", HFuncCode::MURMUR3_32},
-                                   {"keccak-224", HFuncCode::KECCAK_224},
-                                   {"keccak-256", HFuncCode::KECCAK_256},
-                                   {"keccak-384", HFuncCode::KECCAK_384},
-                                   {"keccak-512", HFuncCode::KECCAK_512},
-                                   {"shake-128", HFuncCode::SHAKE_128},
-                                   {"shake-256", HFuncCode::SHAKE_256}};
+static map<string, HFuncCode> code_map = {
+    {"sha1", HFuncCode::SHA1},
+    {"sha256", HFuncCode::SHA2_256},
+    {"sha2-256", HFuncCode::SHA2_256},
+    {"sha2-512", HFuncCode::SHA2_512},
+    {"sha3", HFuncCode::SHA3_512},
+    {"sha3-224", HFuncCode::SHA3_224},
+    {"sha3-256", HFuncCode::SHA3_256},
+    {"sha3-384", HFuncCode::SHA3_384},
+    {"sha3-512", HFuncCode::SHA3_512},
+    {"dbl-sha2-256", HFuncCode::DBL_SHA2_256},
+    {"murmur3", HFuncCode::MURMUR3_32},
+    {"keccak-224", HFuncCode::KECCAK_224},
+    {"keccak-256", HFuncCode::KECCAK_256},
+    {"keccak-384", HFuncCode::KECCAK_384},
+    {"keccak-512", HFuncCode::KECCAK_512},
+    {"shake-128", HFuncCode::SHAKE_128},
+    {"shake-256", HFuncCode::SHAKE_256}};
 
-map<HFuncCode, string> code_names = {{HFuncCode::SHA1, "sha1"},
-                                     {HFuncCode::SHA2_256, "sha2-256"},
-                                     {HFuncCode::SHA2_512, "sha2-512"},
-                                     {HFuncCode::SHA3_512, "sha3"},
-                                     {HFuncCode::SHA3_224, "sha3-224"},
-                                     {HFuncCode::SHA3_256, "sha3-256"},
-                                     {HFuncCode::SHA3_384, "sha3-384"},
-                                     {HFuncCode::SHA3_512, "sha3-512"},
-                                     {HFuncCode::DBL_SHA2_256, "dbl-sha2-256"},
-                                     {HFuncCode::MURMUR3_32, "murmur3"},
-                                     {HFuncCode::KECCAK_224, "keccak-224"},
-                                     {HFuncCode::KECCAK_256, "keccak-256"},
-                                     {HFuncCode::KECCAK_384, "keccak-384"},
-                                     {HFuncCode::KECCAK_512, "keccak-512"},
-                                     {HFuncCode::SHAKE_128, "shake-128"},
-                                     {HFuncCode::SHAKE_256, "shake-256"}};
+static map<HFuncCode, string> code_names = {
+    {HFuncCode::SHA1, "sha1"},
+    {HFuncCode::SHA2_256, "sha2-256"},
+    {HFuncCode::SHA2_512, "sha2-512"},
+    {HFuncCode::SHA3_512, "sha3"},
+    {HFuncCode::SHA3_224, "sha3-224"},
+    {HFuncCode::SHA3_256, "sha3-256"},
+    {HFuncCode::SHA3_384, "sha3-384"},
+    {HFuncCode::SHA3_512, "sha3-512"},
+    {HFuncCode::DBL_SHA2_256, "dbl-sha2-256"},
+    {HFuncCode::MURMUR3_32, "murmur3"},
+    {HFuncCode::KECCAK_224, "keccak-224"},
+    {HFuncCode::KECCAK_256, "keccak-256"},
+    {HFuncCode::KECCAK_384, "keccak-384"},
+    {HFuncCode::KECCAK_512, "keccak-512"},
+    {HFuncCode::SHAKE_128, "shake-128"},
+    {HFuncCode::SHAKE_256, "shake-256"}};
 
-}  // namespace
+}  // namespace internal
 }  // namespace multi::hash
