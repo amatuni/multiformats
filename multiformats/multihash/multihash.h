@@ -106,8 +106,13 @@ class Hash {
   constructed with initial data passed as input.
   */
   vector<uint8_t> raw_sum() const;
-
+  /*
+  return hex encoded strong for the code prefix
+  */
   string prefix_hex() const;
+  /*
+  return hex encoded string for the digest length prefix
+  */
   string digest_hex() const;
   /*
   Return the name of the hash function being used for this
