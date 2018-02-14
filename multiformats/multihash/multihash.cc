@@ -21,17 +21,23 @@ optional<Hash> Hash::New(const string& data, const string& hfunc) {
 }
 
 Hash::Hash(const string& data, HFuncCode func) : _hfunc(func) {
+  set_hasher(func);
   _prep_sum_buffer(func);
   sum(data);
 }
 
 Hash::Hash(HFuncCode func) : _hfunc(func) {
+  set_hasher(func);
   _prep_sum_buffer(func);
 }
 
 Hash::Hash(uint64_t code, size_t code_len, uint64_t len, size_t len_len,
-           const vector<uint8_t>& raw_sum)
-    : _sum(raw_sum), _hfunc(HFuncCode{code}), _prefix_len(code_len + len_len) {}
+           const vector<uint8_t>& raw_sum): 
+           _sum(raw_sum),
+           _hfunc(HFuncCode{code}), 
+           _prefix_len(code_len + len_len) {
+  set_hasher(_hfunc);
+}
 
 void Hash::_prep_sum_buffer(HFuncCode func) {
   auto hfc     = static_cast<underlying_type_t<HFuncCode>>(func);
@@ -87,13 +93,16 @@ void Hash::sum(const string& data) {
   // handle the rest of them
   switch (_hfunc) {
     case HFuncCode::SHA1:
-      internal::sum_sha1(data, _sum, _prefix_len);
+      internal::sum_sha1(&sha1, data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA2_256:
-      internal::sum_sha256(data, _sum, _prefix_len);
+      internal::sum_sha256(&sha256, data, _sum, _prefix_len);
+      break;
+    case HFuncCode::DBL_SHA2_256:
+      internal::sum_dbl_sha256(&sha256, data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA2_512:
-      internal::sum_sha512(data, _sum, _prefix_len);
+      internal::sum_sha512(&sha512, data, _sum, _prefix_len);
       break;
     case HFuncCode::SHA3_224:
       internal::sum_sha3_224(data, _sum, _prefix_len);
@@ -117,6 +126,10 @@ string Hash::hex() const {
   return HexStr(_sum);
 }
 
+string Hash::b64() const {
+  return EncodeBase64(_sum.data(), _sum.size());
+}
+
 string Hash::prefix_hex() const {
   return HexStr(_sum.begin(), _sum.begin() + _prefix_len);
 }
@@ -131,6 +144,20 @@ vector<uint8_t> Hash::raw_sum() const {
 
 string Hash::hash_func_name() const {
   return internal::code_names[_hfunc];
+}
+
+void Hash::set_hasher(HFuncCode func) {
+  switch (func) {
+    case HFuncCode::SHA1:
+      sha1 = CSHA1();
+      return;
+    case HFuncCode::SHA2_256:
+      sha256 = CSHA256();
+      return;
+    case HFuncCode::SHA2_512:
+      sha512 = CSHA512();
+      return;
+  }
 }
 
 optional<HFuncCode> check_and_init(const string& hfunc) {
@@ -196,62 +223,73 @@ void _init() {
   Hash::initialized = true;
 }
 
-void sum_sha1(const string& data, vector<uint8_t>& out, uint16_t _prefix_len) {
-  CSHA1 sha1;
-  sha1.Write((unsigned char*)&data[0], data.size()).Finalize(&out[_prefix_len]);
-}
-
-void sum_sha256(const string& data, vector<uint8_t>& out,
-                uint16_t _prefix_len) {
-  CSHA256 sha256;
-  sha256.Write((unsigned char*)&data[0], data.size())
+inline void sum_sha1(CSHA1* hasher, const string& data, vector<uint8_t>& out,
+              uint16_t _prefix_len) {
+  hasher->Reset();
+  hasher->Write((unsigned char*)&data[0], data.size())
       .Finalize(&out[_prefix_len]);
 }
 
-void sum_sha512(const string& data, vector<uint8_t>& out,
+inline void sum_sha256(CSHA256* hasher, const string& data, vector<uint8_t>& out,
                 uint16_t _prefix_len) {
-  CSHA512 sha512;
-  sha512.Write((unsigned char*)&data[0], data.size())
+  hasher->Reset();
+  hasher->Write((unsigned char*)&data[0], data.size())
       .Finalize(&out[_prefix_len]);
 }
 
-void sum_sha3_224(const string& data, vector<uint8_t>& out,
+inline void sum_dbl_sha256(CSHA256* hasher, const string& data, vector<uint8_t>& out,
+                    uint16_t _prefix_len) {
+  hasher->Reset();
+  hasher->Write((unsigned char*)&data[0], data.size())
+      .Finalize(&out[_prefix_len]);
+  hasher->Reset();
+  hasher->Write((unsigned char*)&out[_prefix_len], out.size() - _prefix_len)
+      .Finalize(&out[_prefix_len]);
+}
+
+inline void sum_sha512(CSHA512* hasher, const string& data, vector<uint8_t>& out,
+                uint16_t _prefix_len) {
+  hasher->Write((unsigned char*)&data[0], data.size())
+      .Finalize(&out[_prefix_len]);
+}
+
+inline void sum_sha3_224(const string& data, vector<uint8_t>& out,
                   uint16_t _prefix_len) {
   sha3_224(&out[_prefix_len], out.size() - _prefix_len,
            (const uint8_t*)data.data(), data.size());
 }
 
-void sum_sha3_256(const string& data, vector<uint8_t>& out,
+inline void sum_sha3_256(const string& data, vector<uint8_t>& out,
                   uint16_t _prefix_len) {
   sha3_256(&out[_prefix_len], out.size() - _prefix_len,
            (const uint8_t*)data.data(), data.size());
 }
 
-void sum_sha3_384(const string& data, vector<uint8_t>& out,
+inline void sum_sha3_384(const string& data, vector<uint8_t>& out,
                   uint16_t _prefix_len) {
   sha3_384(&out[_prefix_len], out.size() - _prefix_len,
            (const uint8_t*)data.data(), data.size());
 }
 
-void sum_sha3_512(const string& data, vector<uint8_t>& out,
+inline void sum_sha3_512(const string& data, vector<uint8_t>& out,
                   uint16_t _prefix_len) {
   sha3_512(&out[_prefix_len], out.size() - _prefix_len,
            (const uint8_t*)data.data(), data.size());
 }
 
-void sum_blake2b(const string& data, vector<uint8_t>& out,
+inline void sum_blake2b(const string& data, vector<uint8_t>& out,
                  uint16_t _prefix_len) {
   blake2b(&out[_prefix_len], out.size() - _prefix_len, data.data(), data.size(),
           (void*)0, 0);
 }
 
-void sum_blake2s(const string& data, vector<uint8_t>& out,
+inline void sum_blake2s(const string& data, vector<uint8_t>& out,
                  uint16_t _prefix_len) {
   blake2s(&out[_prefix_len], out.size() - _prefix_len, data.data(), data.size(),
           (void*)0, 0);
 }
 
-void sum_murmur3_32(const string& data, vector<unsigned char>& out,
+inline void sum_murmur3_32(const string& data, vector<unsigned char>& out,
                     uint16_t _prefix_len) {
   CSHA512 sha512;
   sha512.Write((unsigned char*)&data[0], data.size())

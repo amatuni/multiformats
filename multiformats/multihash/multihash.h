@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+// #include <variant>
 #include <vector>
 
 #include "multiformats/util/common.h"
@@ -101,6 +102,12 @@ class Hash {
   */
   string b58() const;
   /*
+  Return a string with the base 64 encoded value of the multihash.
+  This requires a previous call to sum() or that the object was
+  constructed with initial data passed as input.
+  */
+  string b64() const;
+  /*
   Return a vector of bytes containing the raw value of the multihash.
   This requires a previous call to sum() or that the object was
   constructed with initial data passed as input.
@@ -139,6 +146,13 @@ class Hash {
   vector<uint8_t> _code_prefix;
   vector<uint8_t> _size_prefix;
   uint8_t         _prefix_len;
+
+  void set_hasher(HFuncCode func);
+  union {
+    CSHA1   sha1;
+    CSHA256 sha256;
+    CSHA512 sha512;
+  };
 };
 
 // compare if two Hash objects have equal raw sums
@@ -190,9 +204,14 @@ namespace internal {
 
 void _init();
 
-void sum_sha1(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
-void sum_sha256(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
-void sum_sha512(const string& data, vector<uint8_t>& out, uint16_t _prefix_len);
+void sum_sha1(CSHA1* hasher, const string& data, vector<uint8_t>& out,
+              uint16_t _prefix_len);
+void sum_sha256(CSHA256* hasher, const string& data, vector<uint8_t>& out,
+                uint16_t _prefix_len);
+void sum_dbl_sha256(CSHA256* hasher, const string& data, vector<uint8_t>& out,
+                    uint16_t _prefix_len);
+void sum_sha512(CSHA512* hasher, const string& data, vector<uint8_t>& out,
+                uint16_t _prefix_len);
 void sum_sha3_224(const string& data, vector<uint8_t>& out,
                   uint16_t _prefix_len);
 void sum_sha3_256(const string& data, vector<uint8_t>& out,

@@ -34,35 +34,35 @@ enum SafeChars {
  * restrictive)
  * @return           A new string without unsafe chars
  */
-std::string SanitizeString(const std::string& str,
-                           int rule = SAFE_CHARS_DEFAULT);
+std::string                SanitizeString(const std::string& str,
+                                          int                rule = SAFE_CHARS_DEFAULT);
 std::vector<unsigned char> ParseHex(const char* psz);
 std::vector<unsigned char> ParseHex(const std::string& str);
-signed char HexDigit(char c);
+signed char                HexDigit(char c);
 /* Returns true if each character in str is a hex character, and has an even
  * number of hex digits.*/
 bool IsHex(const std::string& str);
 /**
  * Return true if the string is a hex number, optionally prefixed with "0x"
  */
-bool IsHexNumber(const std::string& str);
+bool                       IsHexNumber(const std::string& str);
 std::vector<unsigned char> DecodeBase64(const char* p,
-                                        bool* pfInvalid = nullptr);
-std::string DecodeBase64(const std::string& str);
-std::string EncodeBase64(const unsigned char* pch, size_t len);
-std::string EncodeBase64(const std::string& str);
+                                        bool*       pfInvalid = nullptr);
+std::string                DecodeBase64(const std::string& str);
+std::string                EncodeBase64(const unsigned char* pch, size_t len);
+std::string                EncodeBase64(const std::string& str);
 std::vector<unsigned char> DecodeBase32(const char* p,
-                                        bool* pfInvalid = nullptr);
-std::string DecodeBase32(const std::string& str);
-std::string EncodeBase32(const unsigned char* pch, size_t len);
-std::string EncodeBase32(const std::string& str);
+                                        bool*       pfInvalid = nullptr);
+std::string                DecodeBase32(const std::string& str);
+std::string                EncodeBase32(const unsigned char* pch, size_t len);
+std::string                EncodeBase32(const std::string& str);
 
-void SplitHostPort(std::string in, int& portOut, std::string& hostOut);
+void        SplitHostPort(std::string in, int& portOut, std::string& hostOut);
 std::string i64tostr(int64_t n);
 std::string itostr(int n);
-int64_t atoi64(const char* psz);
-int64_t atoi64(const std::string& str);
-int atoi(const std::string& str);
+int64_t     atoi64(const char* psz);
+int64_t     atoi64(const std::string& str);
+int         atoi(const std::string& str);
 
 /**
  * Convert string to signed 32-bit integer with strict parse error feedback.
@@ -108,7 +108,7 @@ bool ParseDouble(const std::string& str, double* out);
 
 template <typename T>
 std::string HexStr(const T itbegin, const T itend, bool fSpaces = false) {
-  std::string rv;
+  std::string       rv;
   static const char hexmap[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
                                   '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
   rv.reserve((itend - itbegin) * 3);
@@ -158,8 +158,8 @@ bool ParseFixedPoint(const std::string& val, int decimals, int64_t* amount_out);
 /** Convert from one power-of-2 number base to another. */
 template <int frombits, int tobits, bool pad, typename O, typename I>
 bool ConvertBits(O& out, I it, I end) {
-  size_t acc               = 0;
-  size_t bits              = 0;
+  size_t           acc     = 0;
+  size_t           bits    = 0;
   constexpr size_t maxv    = (1 << tobits) - 1;
   constexpr size_t max_acc = (1 << (frombits + tobits - 1)) - 1;
   while (it != end) {
