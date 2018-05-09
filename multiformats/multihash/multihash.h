@@ -6,7 +6,6 @@
 #include <iostream>
 #include <map>
 #include <string>
-// #include <variant>
 #include <vector>
 
 #include "multiformats/util/common.h"
@@ -148,6 +147,7 @@ class Hash {
   uint8_t         _prefix_len;
 
   void set_hasher(HFuncCode func);
+  // TODO: use std::variant once that's available
   union {
     CSHA1   sha1;
     CSHA256 sha256;

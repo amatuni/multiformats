@@ -70,7 +70,7 @@ optional<Hash> Hash::Decode(const vector<uint8_t>& raw_sum) {
       def_len->second != len) {
     return {};
   }
-  return Hash::Hash(code, c_len, len, l_len, raw_sum);
+  return Hash(code, c_len, len, l_len, raw_sum);
 }
 
 optional<Hash> Hash::DecodeHex(const string& hex_digest) {
