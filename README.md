@@ -78,7 +78,7 @@ just add this to your ```WORKSPACE``` file:
 ```
 http_archive(
      name = "multiformats",
-     urls = ["https://github.com/andreiamatuni/multiformats/archive/master.zip"],
+     urls = ["https://github.com/amatuni/multiformats/archive/master.zip"],
      strip_prefix = "multiformats-master",
 )
 ```
